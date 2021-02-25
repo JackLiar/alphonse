@@ -15,7 +15,7 @@ use crate::rx::RxUtility;
 mod device;
 mod mempool;
 
-use device::Device;
+use device::{Device, Packet};
 
 pub const UTILITY: RxUtility = RxUtility {
     init,
@@ -71,15 +71,37 @@ impl RxThread {
     pub fn spawn(&mut self, _cfg: Arc<Config>) -> Result<()> {
         let mut mbufs = vec![None; 8];
         let mut rx_count: u64 = 0;
+        let mut overflow_cnt = 0;
         println!("{} started", self.name());
 
         while !self.exit.load(Ordering::Relaxed) {
             for queue in &self.device.rx_queues {
                 let cnt = self.device.port.rx_burst(*queue, &mut mbufs);
                 rx_count += cnt as u64;
-                for mbuf in mbufs[0..cnt].iter() {
+                for mbuf in mbufs.iter() {
                     match mbuf {
-                        Some(_) => {}
+                        Some(m) => {
+                            let pkt = Box::new(Packet::new(m.clone()));
+                            match self._sender.try_send(pkt) {
+                                Ok(_) => {}
+                                Err(e) => match e {
+                                    crossbeam_channel::TrySendError::Full(_) => {
+                                        overflow_cnt += 1;
+                                        if overflow_cnt % 10000 == 0 {
+                                            println!(
+                                                "{} overflowing, total overflow {}",
+                                                self.name(),
+                                                overflow_cnt
+                                            );
+                                        }
+                                    }
+                                    crossbeam_channel::TrySendError::Disconnected(_) => {
+                                        println!("{} channel is closed, exit", self.name());
+                                        break;
+                                    }
+                                },
+                            }
+                        }
                         None => break,
                     }
                 }

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+use rte::mbuf::RTE_MBUF_PRIV_ALIGN;
 
+use super::device::PacketMetaData;
 use crate::config::Config;
 
 fn is_power_of_two<T: Into<u64>>(x: T) -> bool {
@@ -54,12 +56,17 @@ pub fn create_pktmbuf_pool(cfg: &Config) -> Result<Box<rte::mempool::MemoryPool>
         anyhow!("Invalid dpdk.pkt.pool.cache.size: {}", cache_size);
     }
 
+    let mtu = cfg.get_integer(&"dpdk.rx.mtu", 1500, 1500, 4096) as u16;
+
+    let priv_size = std::mem::size_of::<PacketMetaData>() as u16;
+
+    let data_room_size = mtu + priv_size;
     Ok(Box::new(rte::mbuf::pool_create(
         &"alphonse-pkt-pool",
         pool_size,
         cache_size,
-        8,
-        2048,
+        priv_size,
+        data_room_size,
         rte::socket_id() as i32,
     )?))
 }

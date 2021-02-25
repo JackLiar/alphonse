@@ -185,13 +185,13 @@ pub fn init_ports(cfg: &Config, mb_pool: &mut rte::mempool::MemoryPool) -> Resul
         };
     }
 
+    let mtu = cfg.get_integer(&"dpdk.rx.mtu", 1500, 1500, 4096) as u16;
     for (port, nb_rx_queue) in ports {
         let name = unsafe { CStr::from_ptr((*port.info().device).name).to_str().unwrap() };
         println!("configuring port {}", name);
         configure(port, nb_rx_queue, mb_pool)?;
 
-        // TODO: set mtu by alphonse config
-        port.set_mtu(1514)?;
+        port.set_mtu(mtu)?;
         port.promiscuous_enable();
         port.start()?;
     }
@@ -199,79 +199,85 @@ pub fn init_ports(cfg: &Config, mb_pool: &mut rte::mempool::MemoryPool) -> Resul
     Ok(())
 }
 
-pub struct Packet {
-    mbuf: Box<rte::mbuf::MBuf>,
+pub struct PacketMetaData {
     ts: TimeVal<precision::Millisecond>,
     layers: Layers,
     rules: Rules,
     tunnel: Tunnel,
-    drop: bool,
 }
 
-impl Packet {
-    fn set(&mut self, mbuf: Box<rte::mbuf::MBuf>, ts: TimeVal<precision::Millisecond>) {
-        if self.drop {
-            self.mbuf.free();
-        }
+#[derive(Clone, Debug)]
+pub struct Packet(rte::mbuf::MBuf);
 
-        self.mbuf = mbuf;
-        self.ts = ts;
+impl Packet {
+    pub fn new(mbuf: rte::mbuf::MBuf) -> Self {
+        Self(mbuf)
+    }
+
+    fn metadata(&self) -> &PacketMetaData {
+        unsafe { &*(self.0.priv_addr().as_ptr() as *mut PacketMetaData) }
+    }
+
+    fn metadata_mut(&self) -> &mut PacketMetaData {
+        unsafe { &mut *(self.0.priv_addr().as_ptr() as *mut PacketMetaData) }
     }
 }
 
 unsafe impl Send for Packet {}
 
-impl Clone for Packet {
-    fn clone(&self) -> Self {
-        Self {
-            mbuf: self.mbuf.clone(),
-            ts: self.ts.clone(),
-            layers: self.layers.clone(),
-            rules: self.rules.clone(),
-            tunnel: self.tunnel,
-            drop: self.drop,
-        }
-    }
-}
-
 impl PacketTrait for Packet {
     fn raw(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.mbuf.mtod().as_ptr(), self.mbuf.pkt_len()) }
+        unsafe { std::slice::from_raw_parts(self.0.mtod().as_ptr(), self.0.pkt_len()) }
     }
 
     fn caplen(&self) -> u32 {
-        self.mbuf.pkt_len() as u32
+        self.0.pkt_len() as u32
     }
 
     fn ts(&self) -> &libc::timeval {
-        self.ts.deref()
+        self.metadata().ts.deref()
     }
 
     fn layers(&self) -> &Layers {
-        &self.layers
+        &self.metadata().layers
     }
 
     fn layers_mut(&mut self) -> &mut Layers {
-        &mut self.layers
+        &mut self.metadata_mut().layers
     }
 
     fn rules(&self) -> &[Rule] {
-        self.rules.as_slice()
+        self.metadata().rules.as_slice()
     }
 
     fn rules_mut(&mut self) -> &mut Rules {
-        &mut self.rules
+        &mut self.metadata_mut().rules
     }
 
     fn tunnel(&self) -> Tunnel {
-        self.tunnel
+        self.metadata().tunnel
     }
 
     fn tunnel_mut(&mut self) -> &mut Tunnel {
-        &mut self.tunnel
+        &mut self.metadata_mut().tunnel
     }
 
     fn clone_box(&self) -> Box<dyn PacketTrait + '_> {
         Box::new(self.clone())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn packet_metadata_size_is_aligned() {
+        let priv_size = std::mem::size_of::<PacketMetaData>() as u32;
+        assert_eq!(
+            priv_size + (rte::ffi::RTE_MBUF_PRIV_ALIGN - 1)
+                & (!(rte::ffi::RTE_MBUF_PRIV_ALIGN - 1)),
+            priv_size
+        );
     }
 }
