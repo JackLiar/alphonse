@@ -24,7 +24,7 @@ pub struct Config {
     pub pkt_threads: u8,
     pub quiet: bool,
     pub recursive: bool,
-    pub rx_stat_log_interval: u32,
+    pub rx_stat_log_interval: u64,
     pub rx_threads: u8,
     /// Max single session packets
     pub ses_max_packets: u16,
@@ -196,7 +196,8 @@ fn parse_config_file(config_file: &str, config: &mut Config) -> Result<()> {
     config.parsers = get_str_arr(doc, "parsers");
     config.interfaces = get_str_arr(doc, "interfaces");
 
-    config.rx_stat_log_interval = get_integer(doc, "rx.stats.log.interval", 1, 1, 10) as u32;
+    config.rx_stat_log_interval =
+        get_integer(doc, "rx.stats.log.interval", 10000, 10000, i64::MAX) as u64;
 
     #[cfg(all(target_os = "linux", feature = "dpdk"))]
     {

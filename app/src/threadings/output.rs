@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -69,13 +68,12 @@ fn to_index_suffix(rotate: Rotate, ts: &TimeVal<Millisecond>) -> String {
 }
 
 pub struct Thread {
-    exit: Arc<AtomicBool>,
     receiver: Receiver<Box<Session>>,
 }
 
 impl Thread {
-    pub fn new(exit: Arc<AtomicBool>, receiver: Receiver<Box<Session>>) -> Self {
-        Thread { exit, receiver }
+    pub fn new(receiver: Receiver<Box<Session>>) -> Self {
+        Thread { receiver }
     }
 
     pub fn name(&self) -> String {
@@ -97,12 +95,12 @@ impl Thread {
         let mut sessions = vec![];
 
         rt.block_on(async {
-            while !self.exit.load(Ordering::Relaxed) {
+            loop {
                 let ses = match self.receiver.try_recv() {
                     Ok(ses) => ses,
                     Err(err) => match err {
-                        crossbeam_channel::TryRecvError::Empty => continue,
                         crossbeam_channel::TryRecvError::Disconnected => break,
+                        _ => continue,
                     },
                 };
 

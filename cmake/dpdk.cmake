@@ -33,18 +33,35 @@ find_program(SUDO NAMES sudo sudoedit HINTS /usr/bin /usr)
 if(NOT SUDO)
     set(SUDO "")
 endif()
-ExternalProject_Add(dpdk-kmods
-    GIT_REPOSITORY http://dpdk.org/git/dpdk-kmods
-    GIT_TAG main
-    GIT_SHALLOW ON
-    EXCLUDE_FROM_ALL ON
-    BUILD_IN_SOURCE ON
-    PREFIX dpdk-kmods
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/install
-    CONFIGURE_COMMAND echo ""
-    COMMAND sed -i.bak -e "s/supported(udev->pdev)/supported(udev->pdev)||true/g" <SOURCE_DIR>/linux/igb_uio/igb_uio.c
-    BUILD_COMMAND cd linux/igb_uio && make 
-    INSTALL_COMMAND ${SUDO} ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/linux/igb_uio/igb_uio.ko /lib/modules/${KERNEL_MODULE_DIR}/extra/dpdk/igb_uio.ko
-)
+
+if(OFFLINE_ENVIRONMENT)
+    # If offline mod user needs to provide a dpdk-kmods archive
+    set(dpdk_kmods_url ${CMAKE_CURRENT_SOURCE_DIR}/third_party/dpdk-kmods.tar.gz)
+    ExternalProject_Add(dpdk-kmods
+        URL ${dpdk_kmods_url}
+        EXCLUDE_FROM_ALL ON
+        BUILD_IN_SOURCE ON
+        PREFIX dpdk-kmods
+        INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/install
+        CONFIGURE_COMMAND echo ""
+        COMMAND sed -i.bak -e "s/supported(udev->pdev)/supported(udev->pdev)||true/g" <SOURCE_DIR>/linux/igb_uio/igb_uio.c
+        BUILD_COMMAND cd linux/igb_uio && make 
+        INSTALL_COMMAND ${SUDO} ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/linux/igb_uio/igb_uio.ko /lib/modules/${KERNEL_MODULE_DIR}/extra/dpdk/igb_uio.ko
+    )
+else()
+    ExternalProject_Add(dpdk-kmods
+        GIT_REPOSITORY http://dpdk.org/git/dpdk-kmods
+        GIT_TAG main
+        GIT_SHALLOW ON
+        EXCLUDE_FROM_ALL ON
+        BUILD_IN_SOURCE ON
+        PREFIX dpdk-kmods
+        INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/install
+        CONFIGURE_COMMAND echo ""
+        COMMAND sed -i.bak -e "s/supported(udev->pdev)/supported(udev->pdev)||true/g" <SOURCE_DIR>/linux/igb_uio/igb_uio.c
+        BUILD_COMMAND cd linux/igb_uio && make 
+        INSTALL_COMMAND ${SUDO} ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/linux/igb_uio/igb_uio.ko /lib/modules/${KERNEL_MODULE_DIR}/extra/dpdk/igb_uio.ko
+    )
+endif()
 
 # yum install numactl-devel elfutils-libelf-devel jansson-devel libfdt-devel bcc-devel

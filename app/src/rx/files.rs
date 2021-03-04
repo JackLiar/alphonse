@@ -7,6 +7,7 @@ use std::thread::JoinHandle;
 use anyhow::{anyhow, Result};
 use crossbeam_channel::Sender;
 use path_absolutize::Absolutize;
+use signal_hook::low_level::raise;
 
 use alphonse_api as api;
 use api::packet::Packet as PacketTrait;
@@ -30,8 +31,8 @@ fn start(
     let mut handles = vec![];
     let mut thread = RxThread {
         exit: exit.clone(),
-        sender: sender.clone(),
         files: get_pcap_files(cfg.as_ref()),
+        sender: sender.clone(),
     };
     let builder = std::thread::Builder::new().name(thread.name());
     let handle = builder.spawn(move || thread.spawn(cfg))?;
@@ -129,6 +130,9 @@ impl RxThread {
                 };
             }
         }
+
+        // terminate alphonse
+        raise(signal_hook::consts::SIGTERM)?;
 
         println!("{} exit", self.name());
 

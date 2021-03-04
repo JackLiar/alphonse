@@ -65,7 +65,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("lmtp"));
+        assert!(ses.has_protocol(&"lmtp"));
 
         // ftp
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -79,6 +79,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("ftp"));
+        assert!(ses.has_protocol(&"ftp"));
     }
 }

@@ -169,7 +169,7 @@ impl<'a> api::parsers::ProtocolParserTrait for ProtocolParser<'static> {
         if !self.is_classified() {
             // If this session is already classified as this protocol, skip
             self.classified_as_this_protocol()?;
-            ses.add_protocol(self.name());
+            ses.add_protocol(&self.name());
             let settings = match SETTINGS.get() {
                 Some(s) => s,
                 None => return Err(anyhow!("Global llhttp sttings is empty or initializing")),

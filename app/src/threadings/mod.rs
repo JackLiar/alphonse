@@ -1,6 +1,6 @@
 pub mod output;
 mod pkt;
-mod session;
+mod timeout;
 
 pub use pkt::PktThread;
-pub use session::SessionThread;
+pub use timeout::TimeoutThread;

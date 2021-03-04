@@ -43,6 +43,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("zabbix"));
+        assert!(ses.has_protocol(&"zabbix"));
     }
 }

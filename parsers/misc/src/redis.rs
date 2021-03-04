@@ -51,7 +51,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("redis"));
+        assert!(ses.has_protocol(&"redis"));
 
         // rule 2
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -65,7 +65,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("redis"));
+        assert!(ses.has_protocol(&"redis"));
 
         // rule 3
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -79,6 +79,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("redis"));
+        assert!(ses.has_protocol(&"redis"));
     }
 }

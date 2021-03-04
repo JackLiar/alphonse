@@ -2,6 +2,7 @@ use std::{borrow::Borrow, iter::FromIterator};
 
 use anyhow::{anyhow, Result};
 use hyperscan::Builder;
+use tinyvec::TinyVec;
 
 use super::{matched, packet};
 
@@ -28,6 +29,7 @@ impl From<packet::Protocol> for Protocol {
 pub struct Rule {
     pub hs_pattern: hyperscan::Pattern,
     pub protocol: Protocol,
+    pub need_matched_pos: bool,
 }
 
 impl PartialEq for Rule {
@@ -48,6 +50,7 @@ impl Rule {
         Rule {
             hs_pattern,
             protocol: Protocol::all(),
+            need_matched_pos: false,
         }
     }
 }
@@ -125,16 +128,22 @@ impl Classifier {
     ) -> Result<()> {
         match (&self.hs_db, &scratch.hs_scratch) {
             (Some(db), Some(s)) => {
-                let mut ids = Vec::new();
-                db.scan(pkt.payload(), s, |id, _from, _to, _flags| {
+                let mut ids = TinyVec::<[usize; 8]>::new();
+                let mut from_tos = TinyVec::<[(u64, u64); 8]>::new();
+                db.scan(pkt.payload(), s, |id, from, to, _flags| {
                     ids.push(id as usize);
+                    from_tos.push((from, to));
                     hyperscan::Matching::Continue
                 })?;
 
-                for id in ids {
+                for (id, (from, to)) in ids.iter().zip(from_tos) {
                     let proto = Protocol::from(pkt.layers().trans.protocol);
-                    if self.dpi_rules[id].protocol.contains(proto) {
-                        pkt.rules_mut().push(self.rules[id].clone());
+                    if self.dpi_rules[*id].protocol.contains(proto) {
+                        let mut rule = self.rules[*id].clone();
+                        if self.dpi_rules[*id].need_matched_pos {
+                            rule.from_to = Some((from as u16, to as u16));
+                        }
+                        pkt.rules_mut().push(self.rules[*id].clone());
                     }
                 }
 

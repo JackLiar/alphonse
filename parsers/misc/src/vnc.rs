@@ -42,6 +42,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("vnc"));
+        assert!(ses.has_protocol(&"vnc"));
     }
 }

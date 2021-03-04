@@ -40,7 +40,9 @@ mod test {
         assert_eq!(pkt.rules().len(), 1);
 
         let mut ses = Session::new();
-        parser.parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses).unwrap();
-        assert!(ses.has_protocol("bjnp"));
+        parser
+            .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
+            .unwrap();
+        assert!(ses.has_protocol(&"bjnp"));
     }
 }

@@ -77,7 +77,7 @@ pub trait ProtocolParserTrait: Send + Sync {
         if !self.is_classified() {
             // If this session is already classified as this protocol, skip
             self.classified_as_this_protocol()?;
-            ses.add_protocol(self.name());
+            ses.add_protocol(&self.name());
         }
 
         Ok(())

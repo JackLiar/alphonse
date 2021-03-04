@@ -33,6 +33,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BUILD_DPDK_KMODS)
     add_dependencies(alphonse dpdk-kmods)
 endif()
 
+option(BUILD_TCMALLOC "build tcmalloc" OFF)
+if(BUILD_TCMALLOC)
+    add_dependencies(alphonse gperftools)
+endif()
+
 add_dependencies(alphonse llhttp hyperscan)
 
 print_configuration()

@@ -56,7 +56,7 @@ mod test {
         for rule in pkt.rules() {
             parser.parse_pkt(&pkt, Some(rule), &mut ses).unwrap();
         }
-        assert!(ses.has_protocol("cassandra"));
+        assert!(ses.has_protocol(&"cassandra"));
 
         // rule 2
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -70,6 +70,6 @@ mod test {
         for rule in pkt.rules() {
             parser.parse_pkt(&pkt, Some(rule), &mut ses).unwrap();
         }
-        assert!(ses.has_protocol("cassandra"));
+        assert!(ses.has_protocol(&"cassandra"));
     }
 }

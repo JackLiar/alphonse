@@ -19,7 +19,7 @@ pub fn register_classify_rules(
 
 fn classify(ses: &mut Session, pkt: &Box<dyn Packet>) {
     match &pkt.payload()[5..].windows(4).position(|win| win == b"IMAP") {
-        Some(_) => ses.add_protocol("imap"),
+        Some(_) => ses.add_protocol(&"imap"),
         None => {}
     }
 }
@@ -52,6 +52,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("imap"));
+        assert!(ses.has_protocol(&"imap"));
     }
 }

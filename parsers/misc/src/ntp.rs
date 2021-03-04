@@ -33,7 +33,7 @@ fn classify(ses: &mut Session, pkt: &Box<dyn Packet>) {
         return;
     }
 
-    ses.add_protocol("ntp");
+    ses.add_protocol(&"ntp");
 }
 
 #[cfg(test)]
@@ -71,6 +71,6 @@ mod test {
         for rule in pkt.rules() {
             parser.parse_pkt(&pkt, Some(rule), &mut ses).unwrap();
         }
-        assert!(ses.has_protocol("ntp"));
+        assert!(ses.has_protocol(&"ntp"));
     }
 }

@@ -10,7 +10,9 @@ use anyhow::Result;
 use crossbeam_channel::{bounded, Sender};
 
 use alphonse_api as api;
-use api::{classifiers, parsers::NewProtocolParserFunc, parsers::ParserID};
+use api::packet::Packet;
+use api::parsers::NewProtocolParserFunc;
+use api::{classifiers, parsers::ParserID};
 
 mod commands;
 mod config;
@@ -19,10 +21,10 @@ mod rx;
 mod stats;
 mod threadings;
 
-fn start_rx(
+fn start_rx<'a>(
     exit: Arc<AtomicBool>,
     cfg: Arc<config::Config>,
-    sender: Sender<Box<dyn api::packet::Packet>>,
+    sender: Sender<Box<dyn Packet>>,
 ) -> Result<Vec<JoinHandle<Result<()>>>> {
     if !cfg.pcap_file.is_empty() {
         return (rx::files::UTILITY.start)(exit, cfg, sender);
@@ -41,6 +43,10 @@ fn main() -> Result<()> {
     let mut cfg = config::parse_args(root_cmd)?;
     let exit = Arc::new(AtomicBool::new(false));
 
+    let session_table = Arc::new(dashmap::DashMap::with_capacity_and_hasher(
+        1000000,
+        fnv::FnvBuildHasher::default(),
+    ));
     match cfg.rx_backend.as_str() {
         "libpcap" => {
             (rx::libpcap::UTILITY.init)(&mut cfg)?;
@@ -93,35 +99,23 @@ fn main() -> Result<()> {
     let classifier_manager = Arc::new(classifier_manager);
 
     let (ses_sender, ses_receiver) = bounded(cfg.pkt_channel_size as usize);
-    let mut output_thread = threadings::output::Thread::new(exit.clone(), ses_receiver.clone());
-
-    // initialize session threads
-    let mut ses_threads = Vec::new();
-    let mut dispatch_senders = vec![];
-    let mut dispatch_receivers = vec![];
-    for i in 0..cfg.ses_threads {
-        let (dispatch_sender, dispatch_receiver) = bounded(cfg.pkt_channel_size as usize);
-        let thread = threadings::SessionThread::new(
-            i,
-            exit.clone(),
-            dispatch_receiver.clone(),
-            ses_sender.clone(),
-            classifier_manager.clone(),
-        );
-        ses_threads.push(thread);
-        dispatch_senders.push(dispatch_sender);
-        dispatch_receivers.push(dispatch_receiver);
-    }
+    let mut output_thread = threadings::output::Thread::new(ses_receiver.clone());
 
     // initialize pkt threads
     let (pkt_sender, pkt_receiver) = bounded(cfg.pkt_channel_size as usize);
     let mut pkt_threads = Vec::new();
 
     for i in 0..cfg.pkt_threads {
-        let thread =
-            threadings::PktThread::new(i, exit.clone(), pkt_receiver.clone(), &dispatch_senders);
+        let thread = threadings::PktThread::new(
+            i,
+            exit.clone(),
+            classifier_manager.clone(),
+            pkt_receiver.clone(),
+        );
         pkt_threads.push(thread);
     }
+
+    let timeout_thread = threadings::TimeoutThread::new(exit.clone(), ses_sender.clone());
 
     // start all output threads
     {
@@ -131,19 +125,23 @@ fn main() -> Result<()> {
         handles.push(handle);
     }
 
-    // start all session threads
-    for mut thread in ses_threads {
+    // start all pkt threads
+    for thread in pkt_threads {
         let cfg = cfg.clone();
+        let session_table = session_table.clone();
         let parsers = Box::new(protocol_parsers.iter().map(|p| p.box_clone()).collect());
         let builder = std::thread::Builder::new().name(thread.name());
-        let handle = builder.spawn(move || thread.spawn(cfg, parsers))?;
+        let handle = builder.spawn(move || thread.spawn(cfg, session_table, parsers))?;
         handles.push(handle);
     }
 
-    // start all pkt threads
-    for thread in pkt_threads {
-        let builder = std::thread::Builder::new().name(thread.name());
-        let handle = builder.spawn(move || thread.spawn())?;
+    // start session timeout thread
+    {
+        let cfg = cfg.clone();
+        let builder = std::thread::Builder::new().name(timeout_thread.name());
+        let handle = builder
+            .spawn(move || timeout_thread.spawn(cfg, session_table.clone()))
+            .unwrap();
         handles.push(handle);
     }
 
@@ -154,8 +152,6 @@ fn main() -> Result<()> {
 
     drop(pkt_sender);
     drop(pkt_receiver);
-    drop(dispatch_senders);
-    drop(dispatch_receivers);
     drop(ses_sender);
     drop(ses_receiver);
 

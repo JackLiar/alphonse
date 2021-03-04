@@ -54,7 +54,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("stun"));
+        assert!(ses.has_protocol(&"stun"));
 
         // rule 2 pattern 1
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -68,7 +68,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("stun"));
+        assert!(ses.has_protocol(&"stun"));
 
         // rule 2 pattern 2
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -82,7 +82,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("stun"));
+        assert!(ses.has_protocol(&"stun"));
 
         // rule 2 pattern 3
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -96,6 +96,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("stun"));
+        assert!(ses.has_protocol(&"stun"));
     }
 }

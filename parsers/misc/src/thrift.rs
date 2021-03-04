@@ -45,7 +45,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("thrift"));
+        assert!(ses.has_protocol(&"thrift"));
 
         // rule2
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -58,6 +58,6 @@ mod test {
         for rule in pkt.rules() {
             parser.parse_pkt(&pkt, Some(rule), &mut ses).unwrap();
         }
-        assert!(ses.has_protocol("thrift"));
+        assert!(ses.has_protocol(&"thrift"));
     }
 }

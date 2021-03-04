@@ -44,7 +44,7 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("bitcoin"));
+        assert!(ses.has_protocol(&"bitcoin"));
 
         // \xf9\xbe\xb4\xfe
         let mut pkt: Box<TestPacket> = Box::new(TestPacket::default());
@@ -58,6 +58,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("bitcoin"));
+        assert!(ses.has_protocol(&"bitcoin"));
     }
 }

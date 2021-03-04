@@ -18,7 +18,7 @@ impl CliArg {
         match self {
             &CliArg::Config => "config",
             &CliArg::Delete => "delete",
-            &CliArg::DryRun => "dry-run",
+            &CliArg::DryRun => "dryrun",
             &CliArg::PcapDir => "pcap-dir",
             &CliArg::PcapFile => "pcap-file",
             &CliArg::Quiet => "quiet",
@@ -44,7 +44,7 @@ pub fn new_root_command<'a>() -> clap::App<'a, 'static> {
                 .long("delete")
                 .help("In offline mode delete files once processed"),
             Arg::with_name(CliArg::DryRun.as_str())
-                .long("dry-run")
+                .long("dryrun")
                 .help("In dry run mode, nothing would be written to databases or filesystem"),
             Arg::with_name(CliArg::PcapDir.as_str())
                 .short("R")

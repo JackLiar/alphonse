@@ -83,6 +83,12 @@ pub mod matched {
         Protocol = 3,
     }
 
+    impl Default for RuleType {
+        fn default() -> Self {
+            Self::All
+        }
+    }
+
     impl From<&super::RuleType> for RuleType {
         #[inline]
         fn from(rule_type: &super::RuleType) -> Self {
@@ -95,7 +101,7 @@ pub mod matched {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Default, Clone, PartialEq)]
     /// Data struct used by Packet trait, only contains necessary information about matched rule
     ///
     /// General Rule struct is quite huge, since it contains the real classify rule information,
@@ -108,23 +114,12 @@ pub mod matched {
     /// So for performance reason(reduce bytes to copy and heap allocation),
     /// we use a simplified `RuleType` & `Rule`. This is enough for parsers to work.
     ///
-    /// TODO: test tinyvec crate to reduce heap allocation of Vec<ParserID>
     pub struct Rule {
         pub id: RuleID,
         pub priority: u8,
         pub rule_type: RuleType,
         pub parsers: Parsers,
-    }
-
-    impl Default for Rule {
-        fn default() -> Self {
-            Rule {
-                id: 0,
-                priority: 255,
-                rule_type: RuleType::All,
-                parsers: Parsers::default(),
-            }
-        }
+        pub from_to: Option<(u16, u16)>,
     }
 
     impl From<&super::Rule> for Rule {
@@ -134,11 +129,19 @@ pub mod matched {
                 priority: rule.priority,
                 rule_type: RuleType::from(&rule.rule_type),
                 parsers: rule.parsers.clone(),
+                from_to: None,
             }
         }
     }
 
     impl Rule {
+        /// Create a new match rule
+        pub fn new(rule_type: RuleType) -> Self {
+            let mut rule = Self::default();
+            rule.rule_type = rule_type;
+            rule
+        }
+
         /// Get rule's id
         pub fn id(&self) -> RuleID {
             self.id
@@ -294,7 +297,7 @@ mod tests {
         classifier.add_rule(&mut rule).unwrap();
         assert_eq!(classifier.rules.len(), 1);
         assert_eq!(classifier.rules[0].id(), 0);
-        assert_eq!(classifier.rules[0].priority, 255);
+        assert_eq!(classifier.rules[0].priority, 0);
         assert_eq!(classifier.rules[0].parsers.len(), 1);
         assert_eq!(classifier.rules[0].parsers[0], 1);
         assert!(matches!(classifier.rules[0].rule_type, RuleType::All));
@@ -304,7 +307,7 @@ mod tests {
         classifier.add_rule(&mut rule).unwrap();
         assert_eq!(classifier.rules.len(), 1);
         assert_eq!(classifier.rules[0].id(), 0);
-        assert_eq!(classifier.rules[0].priority, 255);
+        assert_eq!(classifier.rules[0].priority, 0);
         assert_eq!(classifier.rules[0].parsers.len(), 2);
         assert_eq!(classifier.rules[0].parsers[0], 1);
         assert_eq!(classifier.rules[0].parsers[1], 2);

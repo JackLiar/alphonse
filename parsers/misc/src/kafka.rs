@@ -26,7 +26,7 @@ fn classify(ses: &mut Session, pkt: &Box<dyn Packet>) {
     if payload.len() != flen {
         return;
     }
-    ses.add_protocol("kafka");
+    ses.add_protocol(&"kafka");
 }
 
 #[cfg(test)]
@@ -64,6 +64,6 @@ mod test {
         parser
             .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
             .unwrap();
-        assert!(ses.has_protocol("kafka"));
+        assert!(ses.has_protocol(&"kafka"));
     }
 }

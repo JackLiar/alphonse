@@ -1,33 +1,37 @@
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::Result;
-use crossbeam_channel::{Receiver, Sender};
-use fnv::FnvHasher;
+use crossbeam_channel::Receiver;
 
 use alphonse_api as api;
+use api::classifiers::ClassifierManager;
 use api::packet::{Packet, PacketHashKey};
+use api::parsers::ProtocolParserTrait;
+use api::utils::timeval::TimeVal;
+
+use crate::config::Config;
+use crate::rx::{SessionData, SessionTable};
 
 pub struct PktThread {
     id: u8,
     exit: Arc<AtomicBool>,
+    classifier: Arc<ClassifierManager>,
     receiver: Receiver<Box<dyn Packet>>,
-    senders: Vec<Sender<Box<dyn Packet>>>,
 }
 
 impl PktThread {
     pub fn new(
         id: u8,
         exit: Arc<AtomicBool>,
+        classifier: Arc<ClassifierManager>,
         receiver: Receiver<Box<dyn Packet>>,
-        senders: &Vec<Sender<Box<dyn Packet>>>,
     ) -> Self {
         Self {
             id,
             exit,
+            classifier,
             receiver,
-            senders: senders.iter().map(|s| s.clone()).collect(),
         }
     }
 
@@ -35,10 +39,63 @@ impl PktThread {
         format!("alphonse-pkt{}", self.id)
     }
 
-    pub fn spawn(&self) -> Result<()> {
-        let parser = crate::packet::Parser::new(crate::packet::link::ETHERNET);
-        let sender_cnt = self.senders.len() as u64;
+    #[inline]
+    fn parse_pkt(
+        &self,
+        scratch: &mut api::classifiers::ClassifyScratch,
+        protocol_parsers: &mut Box<Vec<Box<dyn ProtocolParserTrait>>>,
+        pkt: &mut Box<dyn Packet>,
+        ses_data: &mut SessionData,
+    ) -> Result<()> {
+        self.classifier.classify(pkt, scratch)?;
 
+        for rule in pkt.rules().iter() {
+            for parser_id in rule.parsers.iter() {
+                match ses_data.parsers.get_mut(parser_id) {
+                    Some(_) => {}
+                    None => {
+                        let parser = protocol_parsers
+                            .get_mut(*parser_id as usize)
+                            .unwrap()
+                            .box_clone();
+                        ses_data.parsers.insert(parser.id(), parser);
+                    }
+                };
+            }
+        }
+
+        for (_, parser) in ses_data.parsers.iter_mut() {
+            let mut matched = false;
+            for rule in pkt.rules().iter() {
+                // If parser has bind a rule this packet matches, parse with this rule
+                // otherwise this pkt belongs to the same flow, parse witout rule information
+                for parser_id in rule.parsers.iter() {
+                    if *parser_id == parser.id() {
+                        parser.parse_pkt(pkt, Some(rule), ses_data.info.as_mut())?;
+                        matched = true;
+                    }
+                }
+            }
+
+            if !matched {
+                parser.parse_pkt(pkt, None, ses_data.info.as_mut())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn spawn(
+        &self,
+        cfg: Arc<Config>,
+        session_table: Arc<SessionTable>,
+        mut protocol_parsers: Box<Vec<Box<dyn ProtocolParserTrait>>>,
+    ) -> Result<()> {
+        let parser = crate::packet::Parser::new(crate::packet::link::ETHERNET);
+        let mut classify_scratch = match self.classifier.alloc_scratch() {
+            Ok(scratch) => scratch,
+            Err(_) => todo!(),
+        };
         println!("{} started", self.name());
 
         while !self.exit.load(Ordering::Relaxed) {
@@ -56,16 +113,32 @@ impl PktThread {
             };
 
             let key = PacketHashKey::from(pkt.as_ref());
-            let mut hasher = FnvHasher::default();
-            key.hash(&mut hasher);
-            let thread = (hasher.finish() % sender_cnt) as usize;
+            match session_table.get_mut(&key) {
+                Some(mut ses) => {
+                    ses.info.update(&pkt);
+                    self.parse_pkt(
+                        &mut classify_scratch,
+                        &mut protocol_parsers,
+                        &mut pkt,
+                        ses.as_mut(),
+                    )
+                    .unwrap();
+                }
+                None => {
+                    let mut ses = Box::new(SessionData::default());
+                    ses.info.start_time = TimeVal::new(*pkt.ts());
+                    ses.info.save_time = pkt.ts().tv_sec as u64 + cfg.ses_save_timeout as u64;
+                    ses.info.update(&pkt);
+                    self.parse_pkt(
+                        &mut classify_scratch,
+                        &mut protocol_parsers,
+                        &mut pkt,
+                        ses.as_mut(),
+                    )
+                    .unwrap();
 
-            match self.senders[thread].try_send(pkt) {
-                Ok(_) => {}
-                Err(err) => match err {
-                    crossbeam_channel::TrySendError::Full(_) => {}
-                    crossbeam_channel::TrySendError::Disconnected(_) => {}
-                },
+                    &mut session_table.insert(key, ses);
+                }
             };
         }
 

@@ -27,7 +27,7 @@ pub fn register_classify_rules(
 fn classify(ses: &mut Session, pkt: &Box<dyn Packet>) {
     unsafe {
         if pkt.src_port() == 49 || pkt.dst_port() == 49 {
-            ses.add_protocol("tacacs");
+            ses.add_protocol(&"tacacs");
         }
     }
 }
@@ -61,7 +61,9 @@ mod test {
         assert_eq!(pkt.rules().len(), 1);
 
         let mut ses = Session::new();
-        parser.parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses).unwrap();
-        assert!(ses.has_protocol("tacacs"));
+        parser
+            .parse_pkt(&pkt, Some(&pkt.rules()[0]), &mut ses)
+            .unwrap();
+        assert!(ses.has_protocol(&"tacacs"));
     }
 }

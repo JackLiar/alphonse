@@ -10,6 +10,7 @@ anyhow = "1.0"
 clap = "2.33.3"
 crossbeam-channel = "0.5"
 chrono = "0.4"
+dashmap = { version = "4.0", features = ["raw-api"] }
 elasticsearch = "7.10.1-alpha.1"
 fnv = "1.0"
 hyperscan = { version = "0.2", features = ["chimera"] }
@@ -17,6 +18,7 @@ libc = "0.2"
 libloading = "0.7"
 path-absolutize = "3.0"
 pcap = "0.8"
+rayon = "1.5"
 rte = { git = "https://github.com/JackLiar/rust-dpdk.git", optional = true }
 serde = { version = "1.0", features = ["rc"] }
 serde_json = "1.0"
@@ -33,3 +35,4 @@ version = "0.1.0"
 arkime = ["alphonse-api/arkime"]
 dpdk = ["rte"]
 heuristic-mpls = []
+use-tcmalloc = ["alphonse-api/tcmalloc"]

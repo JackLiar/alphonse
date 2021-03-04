@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::packet;
 
-use super::{matched, Parsers};
+use super::matched;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Rule {
@@ -20,15 +20,7 @@ pub struct Classifier {
 impl Default for Classifier {
     fn default() -> Self {
         Classifier {
-            rules: vec![
-                matched::Rule {
-                    id: 0,
-                    priority: 0,
-                    rule_type: matched::RuleType::Port,
-                    parsers: Parsers::default(),
-                };
-                std::u16::MAX as usize * 3
-            ],
+            rules: vec![matched::Rule::new(matched::RuleType::Port); std::u16::MAX as usize * 3],
         }
     }
 }

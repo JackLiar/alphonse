@@ -1,10 +1,15 @@
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread::JoinHandle;
 
-use alphonse_api as api;
 use anyhow::Result;
-use api::packet::Packet;
 use crossbeam_channel::Sender;
+use dashmap::DashMap;
+use fnv::{FnvBuildHasher, FnvHashMap};
+
+use alphonse_api as api;
+use api::packet::{Packet, PacketHashKey};
+use api::parsers::{ParserID, ProtocolParserTrait};
+use api::session::Session;
 
 use crate::config::Config;
 
@@ -22,3 +27,20 @@ pub struct RxUtility {
     ) -> Result<Vec<JoinHandle<Result<()>>>>,
     pub cleanup: fn(cfg: &Config) -> Result<()>,
 }
+
+pub struct SessionData {
+    pub info: Box<Session>,
+    pub parsers: Box<FnvHashMap<ParserID, Box<dyn ProtocolParserTrait>>>,
+}
+
+impl Default for SessionData {
+    fn default() -> SessionData {
+        SessionData {
+            // Here we use Session::new(), since default() doesn't generate the struct we need
+            info: Box::new(Session::new()),
+            parsers: Box::new(FnvHashMap::default()),
+        }
+    }
+}
+
+pub type SessionTable = DashMap<PacketHashKey, Box<SessionData>, FnvBuildHasher>;
